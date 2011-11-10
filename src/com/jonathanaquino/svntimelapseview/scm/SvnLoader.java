@@ -30,6 +30,8 @@ import com.jonathanaquino.svntimelapseview.helpers.MiscHelper;
  * Loads revisions from a subversion repository.
  */
 public class SvnLoader extends ScmLoader {
+	public static final String KEY = "svn";
+	
     /** Number of revisions downloaded for the current file. */
     private volatile int loadedCount = 0;
 

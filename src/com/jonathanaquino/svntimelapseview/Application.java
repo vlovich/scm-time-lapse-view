@@ -12,9 +12,8 @@ import javax.swing.UIManager;
 import javax.swing.filechooser.FileSystemView;
 
 import com.jonathanaquino.svntimelapseview.helpers.DiffHelper;
-import com.jonathanaquino.svntimelapseview.scm.GitLoader;
+import com.jonathanaquino.svntimelapseview.scm.ScmFactory;
 import com.jonathanaquino.svntimelapseview.scm.ScmLoader;
-import com.jonathanaquino.svntimelapseview.scm.SvnLoader;
 
 /**
  * The top-level object in the program.
@@ -37,11 +36,9 @@ public class Application {
         String configFilePath = (String) parser.getOptionValue(configOption);
         String repositoryTypeName = (String) parser.getOptionValue(repositoryType, "git");
         ScmLoader loader;
-        if ("git".equals(repositoryTypeName))
-        	loader = new GitLoader();
-        else if ("svn".equals(repositoryTypeName))
-        	loader = new SvnLoader();
-        else {
+        try {
+        	loader = ScmFactory.create(repositoryTypeName);
+        } catch (Exception e) {
         	System.err.println("Invalid repository type " + repositoryTypeName);
         	System.exit(1);
         	return;

@@ -1,15 +1,12 @@
 package com.jonathanaquino.svntimelapseview.scm;
 
 import java.io.File;
-import java.net.URI;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -24,7 +21,6 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
 import org.eclipse.jgit.treewalk.filter.PathFilter;
-import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 
 import com.jonathanaquino.svntimelapseview.Revision;
@@ -33,6 +29,8 @@ import com.jonathanaquino.svntimelapseview.Revision;
  * Loads revisions from a subversion repository.
  */
 public class GitLoader extends ScmLoader {
+	public static final String KEY = "git";
+	
 	/** Number of revisions downloaded for the current file. */
 	private volatile int loadedCount = 0;
 

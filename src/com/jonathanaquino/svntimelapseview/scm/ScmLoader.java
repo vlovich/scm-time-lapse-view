@@ -5,7 +5,7 @@ import java.util.List;
 import com.jonathanaquino.svntimelapseview.Closure;
 import com.jonathanaquino.svntimelapseview.helpers.MiscHelper;
 
-public abstract class ScmLoader {
+public abstract class ScmLoader {	
 	private volatile boolean loading = false;
 	private volatile boolean cancelled = false;
 	
@@ -14,6 +14,11 @@ public abstract class ScmLoader {
 	
 	protected void setLoading(boolean loading) {
 		this.loading = loading;
+	}
+	
+	public String KEY()
+	{
+		return ScmFactory.KEY(getClass());
 	}
 	
 	protected void cancelHook()
