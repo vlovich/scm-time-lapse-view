@@ -1,23 +1,26 @@
-This is a README.txt file for the SVN Time-Lapse View revision browser.
+This is a README.txt file for the SCM Time-Lapse View revision browser.
 
 
 DESCRIPTION
 
-SVN Time-Lapse View is a cross-platform viewer that downloads all revisions of a
+SCM Time-Lapse View is a cross-platform viewer that downloads all revisions of a
 file and lets you scroll through them by dragging a slider. As you scroll, you
 are shown a visual diff of the current revision and the previous revision. Thus
 you can see how a file evolved, and you can easily find the revision at which
 lines appeared, disappeared, or changed.
 
-Time-Lapse View is a powerful visual alternative to the Subversion "blame"
+Time-Lapse View is a powerful visual alternative to the "blame"
 command. It is inspired by the excellent Time-Lapse View in the Perforce
 version-control system.
+
+It supports both local working Git directories & svn paths (URL + file).  SVN has limitations
+in that in only supports repositories 1.5 & older.
 
 
 USAGE
 
-To start the program, simply double-click SvnTimeLapseView.jar or type java -jar
-SvnTimeLapseView.jar at a command prompt. The SVN Time-Lapse View window will
+To start the program, simply double-click scm-timelapse.jar or type java -jar
+scm-timelapse.jar at a command prompt. The SCM Time-Lapse View window will
 appear.
 
 Now let's examine all of the revisions of one of your files. In the "File
