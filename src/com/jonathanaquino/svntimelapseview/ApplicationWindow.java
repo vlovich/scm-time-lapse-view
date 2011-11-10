@@ -7,6 +7,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -29,12 +30,15 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
+import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.Caret;
 import javax.swing.text.DefaultHighlighter;
+import javax.swing.text.html.HTMLEditorKit;
 
 import com.jonathanaquino.svntimelapseview.Searcher.Side;
 import com.jonathanaquino.svntimelapseview.helpers.GuiHelper;
@@ -187,6 +191,20 @@ public class ApplicationWindow extends JFrame {
         add(sliderPanel, BorderLayout.NORTH);
     }
 
+    private JScrollPane getScrollPane(final JEditorPane editorPane) {
+    	return (JScrollPane) editorPane.getParent().getParent();
+    }
+    
+    private JScrollBar getVerticalScrollBar(final JEditorPane editorPane)
+    {
+    	return getScrollPane(editorPane).getVerticalScrollBar();
+    }
+
+    private JScrollBar getHorizontalScrollBar(final JEditorPane editorPane)
+    {
+    	return getScrollPane(editorPane).getHorizontalScrollBar();
+    }
+    
     /**
      * Sets up one of the editor panes showing the contents of the file.
      *
@@ -194,18 +212,23 @@ public class ApplicationWindow extends JFrame {
      * @param x  0 or 1 for left or right
      * @param parentPanel  the panel to which to add the editor pane
      */
-    private void initializeEditorPane(JEditorPane editorPane, int x, JPanel parentPanel) {
+    private void initializeEditorPane(final JEditorPane editorPane, int x, JPanel parentPanel) {
         editorPane.setContentType("text/html");
         editorPane.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(editorPane);
+        editorPane.setEditorKitForContentType("text/html", new HTMLEditorKit() {
+        	
+        });
+        final JScrollPane scrollPane = new JScrollPane(editorPane);
         scrollPane.setMaximumSize(new Dimension(100, 5000));
         parentPanel.add(scrollPane);
         scrollPane.getHorizontalScrollBar().addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(final AdjustmentEvent e) {
+            	if (horizontalScrollBarValue == e.getValue()) return;
+            	
                 MiscHelper.handleExceptions(new Closure() {
                     public void execute() throws Exception {
                         setHorizontalScrollBarValue(e.getValue());
-                        freezeHorizontalScrollBarsDuring(new Closure() {
+                        freezeVerticalScrollBarsDuring(new Closure() {
                             public void execute() throws Exception {
                                 updateScrollBars();
                             }
@@ -214,12 +237,14 @@ public class ApplicationWindow extends JFrame {
                 });
             }
         });
+
         scrollPane.getVerticalScrollBar().addAdjustmentListener(new AdjustmentListener() {
             public void adjustmentValueChanged(final AdjustmentEvent e) {
+            	if (verticalScrollBarValue == e.getValue()) return;
                 MiscHelper.handleExceptions(new Closure() {
                     public void execute() throws Exception {
                         setVerticalScrollBarValue(e.getValue());
-                        freezeVerticalScrollBarsDuring(new Closure() {
+                        freezeHorizontalScrollBarsDuring(new Closure() {
                             public void execute() throws Exception {
                                 updateScrollBars();
                             }
@@ -336,10 +361,6 @@ public class ApplicationWindow extends JFrame {
      * Displays the revision corresponding to the current slider value.
      */
     public void loadRevision() throws Exception {
-        if (searchPanel.isShowingDifferencesOnly()) {
-            setHorizontalScrollBarValue(0);
-            setVerticalScrollBarValue(0);
-        }
         setCurrentRevisionIndex(slider.getValue());
     }
 
@@ -356,7 +377,10 @@ public class ApplicationWindow extends JFrame {
         updateEditorPane(rightEditorPane, diff.getRightHtml());
         updateMetadataTextArea(leftMetadataTextArea, (Revision) revisions.get(n - 1));
         updateMetadataTextArea(rightMetadataTextArea, (Revision) revisions.get(n));
-        searchPanel.setCurrentDiff(diff);
+        searchPanel.setCurrentDiff(diff, scrollToPosition);
+        if (!searchPanel.isShowingDifferencesOnly() && verticalScrollBarValue == 0) {
+        	searchPanel.gotoPreviousDiff();
+        }
     }
 
     /**
@@ -365,8 +389,11 @@ public class ApplicationWindow extends JFrame {
      * @param editorPanel  the editor pane to update
      * @param html  the revision to display in the editor pane
      */
-    private void updateEditorPane(final JEditorPane editorPane, String html) throws Exception {
+    private void updateEditorPane(final JEditorPane editorPane, final String html) throws Exception {
+    	Caret currentCaret = editorPane.getCaret();
         editorPane.setText(html);
+        editorPane.setCaret(currentCaret);
+        
         freezeHorizontalScrollBarsDuring(new Closure() {
             public void execute() throws Exception {
                 freezeVerticalScrollBarsDuring(new Closure() {
@@ -401,14 +428,21 @@ public class ApplicationWindow extends JFrame {
      */
     private void freezeHorizontalScrollBarsDuring(Closure closure) throws Exception {
         horizontalScrollBarLocks++;
+        
         try {
             closure.execute();
         } finally {
-            // Use invokeLater to ensure that the lock is released *after* the editor pane finishes
-            // changing its contents [Jon Aquino 2007-10-14]
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
                     horizontalScrollBarLocks--;
+                    if (horizontalScrollBarLocks == 0 && verticalScrollBarLocks == 0) {
+                		MiscHelper.handleExceptions(new Closure() {
+							@Override
+							public void execute() throws Exception {
+								updateScrollBars();
+							}
+						});
+                    }
                 }
             });
         }
@@ -423,14 +457,21 @@ public class ApplicationWindow extends JFrame {
      */
     private void freezeVerticalScrollBarsDuring(Closure closure) throws Exception {
         verticalScrollBarLocks++;
+    	
         try {
             closure.execute();
         } finally {
-            // Use invokeLater to ensure that the lock is released *after* the editor pane finishes
-            // changing its contents [Jon Aquino 2007-10-14]
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
                     verticalScrollBarLocks--;
+                    if (verticalScrollBarLocks == 0 && horizontalScrollBarLocks == 0) {
+                		MiscHelper.handleExceptions(new Closure() {
+							@Override
+							public void execute() throws Exception {
+								updateScrollBars();
+							}
+						});
+                    }
                 }
             });
         }
@@ -460,15 +501,33 @@ public class ApplicationWindow extends JFrame {
      * Updates the positions of the scrollbars for the editor panes.
      */
     private void updateScrollBars() throws Exception {
-        JScrollBar leftVerticalScrollBar = ((JScrollPane) leftEditorPane.getParent().getParent()).getVerticalScrollBar();
-        JScrollBar rightVerticalScrollBar = ((JScrollPane) rightEditorPane.getParent().getParent()).getVerticalScrollBar();
-        if (leftVerticalScrollBar.getValue() != verticalScrollBarValue) { leftVerticalScrollBar.setValue(verticalScrollBarValue); }
-        if (rightVerticalScrollBar.getValue() != verticalScrollBarValue) { rightVerticalScrollBar.setValue(verticalScrollBarValue); }
+    	new Runnable() {
+    		@Override
+    		public void run() {
+    			if (verticalScrollBarLocks > 0) {
+    				SwingUtilities.invokeLater(this);
+    				return;
+    			}
+		        JScrollBar leftVerticalScrollBar = getVerticalScrollBar(leftEditorPane);
+		        JScrollBar rightVerticalScrollBar = getVerticalScrollBar(rightEditorPane);
+		        if (leftVerticalScrollBar.getValue() != verticalScrollBarValue) { leftVerticalScrollBar.setValue(verticalScrollBarValue); }
+		        if (rightVerticalScrollBar.getValue() != verticalScrollBarValue) { rightVerticalScrollBar.setValue(verticalScrollBarValue); }
+    		}
+    	}.run();
 
-        JScrollBar leftHorizontalScrollBar = ((JScrollPane) leftEditorPane.getParent().getParent()).getHorizontalScrollBar();
-        JScrollBar rightHorizontalScrollBar = ((JScrollPane) rightEditorPane.getParent().getParent()).getHorizontalScrollBar();
-        if (leftHorizontalScrollBar.getValue() != horizontalScrollBarValue) { leftHorizontalScrollBar.setValue(horizontalScrollBarValue); }
-        if (rightHorizontalScrollBar.getValue() != horizontalScrollBarValue) { rightHorizontalScrollBar.setValue(horizontalScrollBarValue); }
+    	new Runnable() {
+    		@Override
+    		public void run() {
+    			if (horizontalScrollBarLocks > 0) {
+    				SwingUtilities.invokeLater(this);
+    				return;
+    			}
+    	        JScrollBar leftHorizontalScrollBar = getHorizontalScrollBar(leftEditorPane);
+    	        JScrollBar rightHorizontalScrollBar = getHorizontalScrollBar(rightEditorPane);
+    	        if (leftHorizontalScrollBar.getValue() != horizontalScrollBarValue) { leftHorizontalScrollBar.setValue(horizontalScrollBarValue); }
+    	        if (rightHorizontalScrollBar.getValue() != horizontalScrollBarValue) { rightHorizontalScrollBar.setValue(horizontalScrollBarValue); }
+    		}
+    	}.run();
     }
 
     /**
@@ -480,6 +539,9 @@ public class ApplicationWindow extends JFrame {
         return application;
     }
 
+    private int scrollToPosition = 0;
+    private Runnable scroller = null;
+    
     /**
      *
     /**
@@ -488,7 +550,57 @@ public class ApplicationWindow extends JFrame {
      * @param position  the zero-based line number
      */
     public void scrollToLine(int position) {
-        leftEditorPane.scrollToReference("Position" + position);
+    	System.out.println("Scroll to " + position);
+    	scrollToPosition = position;
+    	if (scroller == null) {
+	    	scroller = new Runnable() {
+				@Override
+				public void run() {
+					if (verticalScrollBarLocks > 0 || horizontalScrollBarLocks > 0) {
+						SwingUtilities.invokeLater(this);
+						return;
+					}
+			        leftEditorPane.scrollToReference("Position" + scrollToPosition);
+			        scroller = null;
+				}
+			};
+	    	scroller.run();
+    	}
+    }
+    
+    public int getScrollPosition() {
+    	JViewport viewport = getScrollPane(rightEditorPane).getViewport();
+    	Dimension viewSize = viewport.getViewSize();
+    	Point p = viewport.getViewPosition();
+    	int start = Math.max(0, rightEditorPane.viewToModel(p));
+    	p.translate(viewSize.width, viewSize.height);
+    	int end = Math.min(rightEditorPane.getDocument().getLength(), rightEditorPane.viewToModel(p));
+    	try {
+    		String visibleText = rightEditorPane.getText(start, end - start);
+    		int line = -1;
+    		for (int offset = 0; offset < visibleText.length() && offset != -1;) {
+    			int nextSpace = visibleText.indexOf(" ", offset);
+    			if (nextSpace == -1)
+    				break;
+    			String lineNo = visibleText.substring(offset, nextSpace);
+    			try {
+	    			line = Integer.parseInt(lineNo);
+	    			break;
+    			} catch (NumberFormatException e) {
+    				offset = visibleText.indexOf("\n", offset + lineNo.length());
+    				if (offset != -1) offset++;
+    			}
+    		}
+    		if (line == -1) {
+    			System.out.println("No scroll position");
+    			return scrollToPosition;
+    		}
+    		System.out.println("Current scroll position = " + line);
+    		return line - 1;
+    	} catch (Exception e) {
+    		e.printStackTrace();
+    	}
+		return scrollToPosition;
     }
 
     /**

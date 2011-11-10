@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -25,9 +26,6 @@ public class SearchPanel extends JPanel {
     /** The current diff being viewed. */
     private Diff currentDiff;
 
-    /** The index of the difference being viewed, or -1 if none is being viewed. */
-    private int differenceIndex = -1;
-
     /** Searches the text of the two revisions. */
     private Searcher searcher;
 
@@ -36,13 +34,41 @@ public class SearchPanel extends JPanel {
     
     /** Checkbox for toggling between showing the entire file and showing differences only. */
     private JCheckBox showDifferencesOnlyCheckbox = new JCheckBox("Show differences only");
-
+    
+    private final ApplicationWindow applicationWindow;
+    
+    private Runnable previousDiff = new Runnable() {
+		public void run() {
+	    	MiscHelper.handleExceptions(new Closure() {
+	            public void execute() throws Exception {
+	                if (currentDiff == null || currentDiff.getDifferencePositions().size() == 0) { return; }
+                    int nextPosition = previousDiffPosition();
+                    if (nextPosition != -1) scrollToPosition(nextPosition);
+	            }
+	        });
+		}
+	};
+    
+    private Runnable nextDiff = new Runnable() {
+		public void run() {
+			MiscHelper.handleExceptions(new Closure() {
+                public void execute() throws Exception {
+                    if (currentDiff == null || currentDiff.getDifferencePositions().size() == 0) { return; }
+                    int nextPosition = nextDiffPosition();
+                    if (nextPosition != -1) scrollToPosition(nextPosition);
+                };
+            });
+		}
+	}; 
+    
     /**
      * Creates a new SearchPanel.
      *
      * @param applicationWindow  the main window of the program
      */
     public SearchPanel(final ApplicationWindow applicationWindow) {
+    	this.applicationWindow = applicationWindow;
+    	
         setLayout(new GridBagLayout());
         final JTextField searchTextField = new JTextField(20);
         JButton searchButton = new JButton("Search");
@@ -66,6 +92,9 @@ public class SearchPanel extends JPanel {
                     public void execute() throws Exception {
                         applicationWindow.getApplication().getConfiguration().setBoolean("showDifferencesOnly", isShowingDifferencesOnly());
                         applicationWindow.loadRevision();
+                        if (!isShowingDifferencesOnly()) {
+                        	gotoPreviousDiff();
+                        }
                     }
                 });
             }}
@@ -80,24 +109,12 @@ public class SearchPanel extends JPanel {
         nextButton.setToolTipText("Next Difference (Alt+\u21E9)");
         previousButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                MiscHelper.handleExceptions(new Closure() {
-                    public void execute() throws Exception {
-                        if (currentDiff == null || currentDiff.getDifferencePositions().size() == 0) { return; }
-                        differenceIndex = previousDiffIndex(differenceIndex, currentDiff.getDifferencePositions().size());
-                        scrollToCurrentDifference(applicationWindow);
-                    }
-                });
+                previousDiff.run();
             }}
         );
         nextButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                MiscHelper.handleExceptions(new Closure() {
-                    public void execute() throws Exception {
-                        if (currentDiff == null || currentDiff.getDifferencePositions().size() == 0) { return; }
-                        differenceIndex = nextDiffIndex(differenceIndex, currentDiff.getDifferencePositions().size());
-                        scrollToCurrentDifference(applicationWindow);
-                    };
-                });
+                nextDiff.run();
             }}
         );
         add(previousButton, new GridBagConstraints(20, 0, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
@@ -108,6 +125,7 @@ public class SearchPanel extends JPanel {
      * Creates a new SearchPanel without parameters, for testing.
      */
     protected SearchPanel() {
+    	this.applicationWindow = null;
     }
 
     /**
@@ -115,56 +133,68 @@ public class SearchPanel extends JPanel {
      *
      * @param currentDiff  the set of differences between the current two text files
      */
-    public void setCurrentDiff(Diff currentDiff) {
+    public void setCurrentDiff(Diff currentDiff, int currentPosition) {
         this.currentDiff = currentDiff;
         int n = currentDiff.getDifferencePositions().size();
         differenceCountLabel.setText(n + " difference" + (n == 1 ? "" : "s"));
-        differenceIndex = -1;
         searcher = new Searcher(currentDiff.getLeftText(), currentDiff.getRightText());
     }
-
-    /**
-     * Returns the index of the difference to go to if the user clicks Previous Difference.
-     *
-     * @param diffIndex  the index of the difference being viewed, or -1 if none is being viewed
-     * @param count  the number of differences
-     * @return  the index of the previous difference
-     */
-    public int previousDiffIndex(int diffIndex, int count) {
-        if (diffIndex == -1) { return 0; }
-        if (diffIndex == 0) { return 0; }
-        return diffIndex - 1;
+    
+    public void gotoPreviousDiff() {
+    	this.previousDiff.run();
+    }
+    
+    public void gotoNextDiff() {
+    	this.nextDiff.run();
     }
 
     /**
-     * Returns the index of the difference to go to if the user clicks Next Difference.
-     *
-     * @param diffIndex  the index of the difference being viewed, or -1 if none is being viewed
-     * @param count  the number of differences
-     * @return  the index of the next difference
+     * @return  the line position of the previous difference
      */
-    public int nextDiffIndex(int diffIndex, int count) {
-        if (diffIndex == -1) { return 0; }
-        if (diffIndex == count - 1) { return count - 1; }
-        return diffIndex + 1;
+    public int previousDiffPosition(int linePosition, List<Integer> diffPositions) {
+    	float prevPosition = linePosition - 0.5f;
+    	for (int i = diffPositions.size() - 1; i >= 0; i--) {
+    		int position = diffPositions.get(i);
+    		if (position < prevPosition) {
+    			return position;
+    		}
+    	}
+    	// no diffs present before this line
+    	return -1;
+    }
+    
+    private int previousDiffPosition() {
+    	return previousDiffPosition(applicationWindow.getScrollPosition(), currentDiff.getDifferencePositions());
     }
 
     /**
-     * The line number of the current difference.
-     * 
-     * @return  the zero-based line number.
+     * @return  the line position of the next difference
      */
-    private int getCurrentDifferencePosition() {
-        return ((Integer)currentDiff.getDifferencePositions().get(differenceIndex)).intValue();
+    public int nextDiffPosition(int linePosition, List<Integer> diffPositions) {
+    	float nextPosition = linePosition + 0.5f;
+    	for (int i = 0; i < diffPositions.size(); i++) {
+    		int position = diffPositions.get(i);
+    		if (position > nextPosition) {
+    			return position;
+    		}
+    	}
+    	// no diffs present after this line
+    	return -1;
+    }
+    
+    private int nextDiffPosition() {
+    	return nextDiffPosition(applicationWindow.getScrollPosition(), currentDiff.getDifferencePositions());
     }
 
+    public int getNumLeftLines() { return currentDiff != null ? currentDiff.numLines() : 0; }
+    
     /**
      * Scrolls the left and right editor panes to the current difference.
      * 
      * @param applicationWindow  the main window of the program
      */
-    private void scrollToCurrentDifference(ApplicationWindow applicationWindow) {
-        applicationWindow.scrollToLine(Math.max(0, getCurrentDifferencePosition() - 1));
+    private void scrollToPosition(int position) {
+        applicationWindow.scrollToLine(position);
     }
 
     /**

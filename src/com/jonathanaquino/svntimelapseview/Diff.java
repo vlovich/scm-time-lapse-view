@@ -20,7 +20,9 @@ public class Diff {
     private String rightText;
 
     /** Zero-based line numbers at which differences start. */
-    private List differencePositions;
+    private List<Integer> differencePositions;
+    
+    private int numLines;
 
     /**
      * Creates a new Diff.
@@ -30,12 +32,17 @@ public class Diff {
      * @param leftText  text for the left side of the diff
      * @param rightText  text for the right side of the diff
      */
-    public Diff(String leftHtml, String rightHtml, String leftText, String rightText, List differencePositions) {
+    public Diff(int numLines, String leftHtml, String rightHtml, String leftText, String rightText, List differencePositions) {
         this.leftHtml = leftHtml;
         this.rightHtml = rightHtml;
         this.leftText = leftText;
         this.rightText = rightText;
         this.differencePositions = differencePositions;
+        this.numLines = numLines;
+    }
+    
+    public int numLines() {
+    	return numLines;
     }
 
     /**
@@ -79,7 +86,7 @@ public class Diff {
      *
      * @return  0 for the first line, 3 for the fourth, etc.
      */
-    public List getDifferencePositions() {
+    public List<Integer> getDifferencePositions() {
         return differencePositions;
     }
 
