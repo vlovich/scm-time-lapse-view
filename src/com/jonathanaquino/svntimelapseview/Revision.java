@@ -6,7 +6,7 @@ package com.jonathanaquino.svntimelapseview;
 public class Revision {
 
     /** The number identifying this revision */
-    private long revisionNumber;
+    private Object revisionNumber;
 
     /** The username of the person who submitted this revision */
     private String author;
@@ -20,7 +20,10 @@ public class Revision {
     /** The contents of the file that was submitted */
     private String contents;
 
-    public Revision(long revisionNumber, String author, String date, String logMessage, String contents) {
+    protected Revision() {
+    }
+
+    public Revision(Object revisionNumber, String author, String date, String logMessage, String contents) {
         this.revisionNumber = revisionNumber;
         this.author = author;
         this.date = date;
@@ -33,7 +36,7 @@ public class Revision {
      *
      * @return the value from Subversion
      */
-    public long getRevisionNumber() {
+    public Object getRevisionNumber() {
         return revisionNumber;
     }
 

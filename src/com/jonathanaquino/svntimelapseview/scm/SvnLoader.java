@@ -1,4 +1,4 @@
-package com.jonathanaquino.svntimelapseview;
+package com.jonathanaquino.svntimelapseview.scm;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -21,20 +21,15 @@ import org.tmatesoft.svn.core.wc.SVNClientManager;
 import org.tmatesoft.svn.core.wc.SVNRevision;
 import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
+import com.jonathanaquino.svntimelapseview.Closure;
+import com.jonathanaquino.svntimelapseview.Revision;
 import com.jonathanaquino.svntimelapseview.helpers.MiscHelper;
 
 
 /**
  * Loads revisions from a subversion repository.
  */
-public class SvnLoader {
-
-    /** Whether revisions are currently being downloaded. */
-    private volatile boolean loading = false;
-
-    /** Whether the user has requested that the load be cancelled. */
-    private volatile boolean cancelled = false;
-
+public class SvnLoader extends ScmLoader {
     /** Number of revisions downloaded for the current file. */
     private volatile int loadedCount = 0;
 
@@ -45,30 +40,6 @@ public class SvnLoader {
     private List revisions;
 
     /**
-     * Builds a list of revisions for the given file, using a thread.
-     *
-     * @param filePathOrUrl  Subversion URL or working-copy file path
-     * @param username  username, or null for anonymous
-     * @param password  password, or null for anonymous
-     * @param limit  maximum number of revisions to download
-     * @param afterLoad  operation to run after the load finishes
-     */
-    public void loadRevisions(final String filePathOrUrl, final String username, final String password, final int limit, final Closure afterLoad) throws Exception {
-        loading = true;
-        cancelled = false;
-        Thread thread = new Thread(new Runnable() {
-            public void run() {
-                MiscHelper.handleExceptions(new Closure() {
-                    public void execute() throws Exception {
-                        loadRevisionsProper(filePathOrUrl, username, password, limit, afterLoad);
-                    }
-                });
-            }
-        });
-        thread.start();
-    }
-
-    /**
      * Builds a list of revisions for the given file.
      *
      * @param filePathOrUrl  Subversion URL or working-copy file path
@@ -77,8 +48,11 @@ public class SvnLoader {
      * @param limit  maximum number of revisions to download
      * @param afterLoad  operation to run after the load finishes
      */
-    private void loadRevisionsProper(String filePathOrUrl, String username, String password, int limit, Closure afterLoad) throws SVNException, Exception {
+    protected void loadRevisionsProper(String filePathOrUrl, int limit) throws Exception {
         try {
+        	String username = getUsername();
+        	String password = getPassword();
+        	
             loadedCount = totalCount = 0;
             SVNURL fullUrl = svnUrl(filePathOrUrl, username, password);
             String url = fullUrl.removePathTail().toString();
@@ -91,7 +65,7 @@ public class SvnLoader {
             revisions = new ArrayList();
             for (Iterator i = svnFileRevisionsToDownload.iterator(); i.hasNext(); ) {
                 SVNFileRevision r = (SVNFileRevision) i.next();
-                if (cancelled) { break; }
+                if (isCancelled()) { break; }
                 SVNProperties p = r.getRevisionProperties();
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 repository.getFile(r.getPath(), r.getRevision(), null, outputStream);                
@@ -101,24 +75,9 @@ public class SvnLoader {
                 loadedCount++;
             }
             Collections.reverse(revisions);
-            afterLoad.execute();
         } finally {
-            loading = false;
+            setLoading(false);
         }
-    }
-
-    /**
-     * Tries to determine the character encoding of the given byte array.
-     * 
-     * @param array  the bytes of the string to analyze
-     * @return  the encoding (e.g., UTF-8) or null if it could not be determined.
-     */
-    protected String determineEncoding(byte[] array) {
-        if (array.length <= 2) { return null; }
-        if (array[0] == (byte)0xFF && array[1] == (byte)0xFE) { return "UTF-16"; }
-        if (array[0] == (byte)0xFE && array[1] == (byte)0xFF) { return "UTF-16"; }
-        if (array[0] == (byte)0xEF && array[1] == (byte)0xBB) { return "UTF-8"; }
-        return null;
     }
 
     /**
@@ -140,15 +99,15 @@ public class SvnLoader {
         return svnUrl;
     }
 
-    /**
-     * Formats the value of the date property
-     *
-     * @param date  the revision date
-     * @return a friendlier date string
-     */
-    protected String formatDate(String date) {
-        return date.replaceFirst("(.*)T(.*:.*):.*", "$1 $2");
-    }
+	/**
+	 * Formats the value of the date property
+	 *
+	 * @param date  the revision date
+	 * @return a friendlier date string
+	 */
+	protected String formatDate(String date) {
+		return date.replaceFirst("(.*)T(.*:.*):.*", "$1 $2");
+	}
 
     /**
      * Returns the specified Subversion repository
@@ -166,15 +125,6 @@ public class SvnLoader {
         repository.setAuthenticationManager(SVNWCUtil.createDefaultAuthenticationManager(username, password));
         repository.setTunnelProvider(SVNWCUtil.createDefaultOptions(true));
         return repository;
-    }
-
-    /**
-     * Returns whether revisions are currently being downloaded.
-     *
-     * @return  whether the SvnLoader is loading revisions
-     */
-    public boolean isLoading() {
-        return loading;
     }
 
     /**
@@ -203,12 +153,4 @@ public class SvnLoader {
     public List getRevisions() {
         return revisions;
     }
-
-    /**
-     * Requests that the load be cancelled.
-     */
-    public void cancel() {
-        cancelled = true;
-    }
-
 }

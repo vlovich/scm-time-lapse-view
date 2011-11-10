@@ -21,6 +21,7 @@ import javax.swing.Timer;
 import com.jonathanaquino.svntimelapseview.helpers.GuiHelper;
 import com.jonathanaquino.svntimelapseview.helpers.MiscHelper;
 import com.jonathanaquino.svntimelapseview.helpers.Rot13;
+import com.jonathanaquino.svntimelapseview.scm.ScmLoader;
 
 /**
  * A panel that prompts the user to enter a file path, username, and password.
@@ -191,7 +192,7 @@ public class LoadPanel extends JPanel {
         statusLabel.setText("Loading...");
         progressBar.setValue(0);
         ((CardLayout) getLayout()).show(this, "progress-panel");
-        final SvnLoader loader = applicationWindow.getApplication().getLoader();
+        final ScmLoader loader = applicationWindow.getApplication().getLoader();
         final Timer timer = new Timer(500, new ActionListener() {
             public void actionPerformed(final ActionEvent e) {
                 MiscHelper.handleExceptions(new Closure() {

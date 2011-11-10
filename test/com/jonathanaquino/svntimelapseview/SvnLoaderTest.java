@@ -1,5 +1,7 @@
 package com.jonathanaquino.svntimelapseview;
 
+import com.jonathanaquino.svntimelapseview.scm.SvnLoader;
+
 import junit.framework.TestCase;
 
 public class SvnLoaderTest extends TestCase {

@@ -293,7 +293,7 @@ public class ApplicationWindow extends JFrame {
      * @param limit  maximum number of revisions to download
      */
     public void load(final String filePathOrUrl, final String username, final String password, final boolean rememberPassword, final int limit) throws Exception {
-        application.load(filePathOrUrl, username, password, limit, new Closure() {
+        application.load(application.getLoader(), filePathOrUrl, username, password, limit, new Closure() {
             public void execute() throws Exception {
                 GuiHelper.invokeOnEventThread(new Runnable() {
                     public void run() {

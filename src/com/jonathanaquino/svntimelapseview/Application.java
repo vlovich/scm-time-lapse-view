@@ -12,6 +12,9 @@ import javax.swing.UIManager;
 import javax.swing.filechooser.FileSystemView;
 
 import com.jonathanaquino.svntimelapseview.helpers.DiffHelper;
+import com.jonathanaquino.svntimelapseview.scm.GitLoader;
+import com.jonathanaquino.svntimelapseview.scm.ScmLoader;
+import com.jonathanaquino.svntimelapseview.scm.SvnLoader;
 
 /**
  * The top-level object in the program.
@@ -24,6 +27,7 @@ public class Application {
     public static void main(String[] args) throws Exception {
         initializeLookAndFeel();
         CmdLineParser parser = new CmdLineParser();
+        CmdLineParser.Option repositoryType = parser.addStringOption("scm");
         CmdLineParser.Option usernameOption = parser.addStringOption("username");
         CmdLineParser.Option passwordOption = parser.addStringOption("password");
         CmdLineParser.Option configOption = parser.addStringOption("config");
@@ -31,6 +35,18 @@ public class Application {
         parser.parse(args);
         String filePathOrUrl = parser.getRemainingArgs().length > 0 ? parser.getRemainingArgs()[0] : null;
         String configFilePath = (String) parser.getOptionValue(configOption);
+        String repositoryTypeName = (String) parser.getOptionValue(repositoryType, "git");
+        ScmLoader loader;
+        if ("git".equals(repositoryTypeName))
+        	loader = new GitLoader();
+        else if ("svn".equals(repositoryTypeName))
+        	loader = new SvnLoader();
+        else {
+        	System.err.println("Invalid repository type " + repositoryTypeName);
+        	System.exit(1);
+        	return;
+        }
+        
         if (configFilePath == null) { configFilePath = FileSystemView.getFileSystemView().getDefaultDirectory() + File.separator + "svn_time_lapse_view.ini"; }
         String username = (String) parser.getOptionValue(usernameOption);
         if (username == null) { username = ""; }
@@ -38,7 +54,7 @@ public class Application {
         if (password == null) { password = ""; }
         String limitString = (String) parser.getOptionValue(limitOption);
         int limit = limitString == null ? 100 : Integer.parseInt(limitString);
-        new ApplicationWindow(new Application(new Configuration(configFilePath)), filePathOrUrl, username, password, limit).setVisible(true);
+        new ApplicationWindow(new Application(new Configuration(configFilePath), loader), filePathOrUrl, username, password, limit).setVisible(true);
     }
 
 
@@ -59,9 +75,9 @@ public class Application {
 
     /** Configuration properties */
     private Configuration configuration;
-
-    /** Loads revisions from a subversion repository. */
-    private SvnLoader loader = new SvnLoader();
+    
+    /** The loader to use on the repository */
+    private ScmLoader loader;
 
     /** Cache of revision Diffs, keyed by "revision-number-1, revision-number-2" */
     private Map diffCache = new HashMap();
@@ -74,8 +90,9 @@ public class Application {
      *
      * @param configuration  configuration properties
      */
-    public Application(Configuration configuration) {
+    public Application(Configuration configuration, ScmLoader loader) {
         this.configuration = configuration;
+        this.loader = loader;
     }
 
     /**
@@ -106,14 +123,17 @@ public class Application {
     /**
      * Loads the revisions for the specified file.
      *
-     * @param filePathOrUrl  Subversion URL or working-copy file path
+     * @param loader The loader to use (git/svn, etc) 
+     * @param filePathOrUrl  Subversion URL or working-copy file path, git work-copy file path, etc
      * @param username  username, or an empty string for anonymous
      * @param password  password, or an empty string for anonymous
      * @param limit  maximum number of revisions to download
      * @param afterLoad  operation to run after the load finishes
      */
-    public void load(String filePathOrUrl, String username, String password, int limit, final Closure afterLoad) throws Exception {
-        loader.loadRevisions(filePathOrUrl, username, password, limit, new Closure() {
+    public void load(final ScmLoader loader, String filePathOrUrl, String username, String password, int limit, final Closure afterLoad) throws Exception {
+    	loader.setPassword(password);
+    	loader.setUsername(username);
+        loader.loadRevisions(filePathOrUrl, limit, new Closure() {
             public void execute() throws Exception {
                 List revisions = loader.getRevisions();
                 if (revisions.size() == 0) { throw new Exception("No revisions found"); }
@@ -139,8 +159,7 @@ public class Application {
      *
      * @return the object that downloads revisions
      */
-    public SvnLoader getLoader() {
+    public ScmLoader getLoader() {
         return loader;
     }
-
 }
