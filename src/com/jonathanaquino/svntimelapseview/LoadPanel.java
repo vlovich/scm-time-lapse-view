@@ -67,13 +67,24 @@ public class LoadPanel extends JPanel {
     /** The dialog for browsing a repository. */
     private RepoBrowserDialog repoBrowserDialog;
 
+    private final String scm;
+    private final String sampleURL;
+
     /**
      * Creates a new LoadPanel.
      *
      * @param applicationWindow  the main window of the program
      */
-    public LoadPanel(ApplicationWindow applicationWindow) {
+    public LoadPanel(ApplicationWindow applicationWindow, String scm) {
         this.applicationWindow = applicationWindow;
+        this.scm = scm;
+
+        if ("svn".equals(scm)) {
+            this.sampleURL = "http://svn.svnkit.com/repos/svnkit/trunk/www/license.html";
+        } else {
+            this.sampleURL = "";
+        }
+        
         setLayout(new CardLayout());
         initializeFieldPanel();
         createProgressPanel();
@@ -107,7 +118,7 @@ public class LoadPanel extends JPanel {
         final Configuration configuration = applicationWindow.getApplication().getConfiguration();
         repoBrowserDialog = new RepoBrowserDialog(applicationWindow);
         JLabel urlLabel = new JLabel("File Path/URL:");
-        urlLabel.setToolTipText("The file path or URL, e.g., http://svn.svnkit.com/repos/svnkit/trunk/www/license.html");
+        urlLabel.setToolTipText("The file path or URL, e.g., " + sampleURL);
         fieldPanel.add(urlLabel);
         fieldPanel.add(urlField);
         fieldPanel.add(createBrowseButton());
@@ -115,25 +126,27 @@ public class LoadPanel extends JPanel {
         limitLabel.setToolTipText("Maximum number of revisions to retrieve");
         fieldPanel.add(limitLabel);
         fieldPanel.add(limitField);
-        JLabel usernameLabel = new JLabel("User:");
-        usernameLabel.setToolTipText("Your username (if any)");
-        fieldPanel.add(usernameLabel);
-        fieldPanel.add(usernameField);
-        JLabel passwordLabel = new JLabel("Pw:");
-        passwordLabel.setToolTipText("Your password (if any)");
-        fieldPanel.add(passwordLabel);
-        fieldPanel.add(passwordField);
-        rememberPasswordCheckBox.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                MiscHelper.handleExceptions(new Closure() {
-                    public void execute() throws Exception {
-                        applicationWindow.setPassword(new String(passwordField.getPassword()), rememberPasswordCheckBox.isSelected(), configuration);
+        if (!"git".equals(scm)) {
+            JLabel usernameLabel = new JLabel("User:");
+            usernameLabel.setToolTipText("Your username (if any)");
+            fieldPanel.add(usernameLabel);
+            fieldPanel.add(usernameField);
+            JLabel passwordLabel = new JLabel("Pw:");
+            passwordLabel.setToolTipText("Your password (if any)");
+            fieldPanel.add(passwordLabel);
+            fieldPanel.add(passwordField);
+            rememberPasswordCheckBox.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    MiscHelper.handleExceptions(new Closure() {
+                        public void execute() throws Exception {
+                            applicationWindow.setPassword(new String(passwordField.getPassword()), rememberPasswordCheckBox.isSelected(), configuration);
+                            }
+                        });
                     }
                 });
-            }
-        });
-        rememberPasswordCheckBox.setToolTipText("Save the password for next time");
-        fieldPanel.add(rememberPasswordCheckBox);
+            rememberPasswordCheckBox.setToolTipText("Save the password for next time");
+            fieldPanel.add(rememberPasswordCheckBox);
+        }
         loadButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 MiscHelper.handleExceptions(new Closure() {
@@ -178,10 +191,12 @@ public class LoadPanel extends JPanel {
      * @param configuration  configuration properties
      */
     public void read(Configuration configuration) {
-        urlField.setText(configuration.get("url", "http://svn.svnkit.com/repos/svnkit/trunk/www/license.html"));
+        urlField.setText(configuration.get(scm + "-url", sampleURL));
+        if (!"git".equals(scm)) {
         usernameField.setText(configuration.get("username", ""));
         passwordField.setText(Rot13.rot13(configuration.get("password", "")));
         rememberPasswordCheckBox.setSelected(configuration.getBoolean("rememberPassword", true));
+    }
         limitField.setText(configuration.get("limit", "100"));
     }
     

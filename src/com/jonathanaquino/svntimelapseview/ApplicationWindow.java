@@ -116,7 +116,7 @@ public class ApplicationWindow extends JFrame {
      * Sets up the GUI components.
      */
     private void initialize() throws Exception {
-        setTitle("SVN Time-Lapse View");
+        setTitle("SCM Time-Lapse View");
         initializeWindowPosition();
         getContentPane().setLayout(new BorderLayout());
         addWindowListener(new WindowAdapter() {
@@ -132,7 +132,7 @@ public class ApplicationWindow extends JFrame {
         JPanel innerPanel = new JPanel(new BorderLayout());
         add(sliderPanel, BorderLayout.NORTH);
         add(innerPanel, BorderLayout.CENTER);
-        loadPanel = new LoadPanel(this);
+        loadPanel = new LoadPanel(this, this.application.getLoader().KEY());
         innerPanel.add(loadPanel, BorderLayout.NORTH);
         innerPanel.add(editorPanePanel, BorderLayout.CENTER);
         innerPanel.add(metadataPanel, BorderLayout.SOUTH);
